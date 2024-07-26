@@ -25,8 +25,8 @@ def sample_orthomosaic(image):
     return x, y, weed_chance
 
 def sample_GP(KrigingObj):
-    gridx = np.arange(0, IMG_WIDTH, 35, dtype='float64')
-    gridy = np.arange(0, IMG_HEIGHT, 35, dtype='float64')
+    gridx = np.arange(0, IMG_WIDTH, 22, dtype='float64')
+    gridy = np.arange(0, IMG_HEIGHT, 22, dtype='float64')
     zstar, ss = OK.execute("grid", gridx, gridy)
     return zstar, ss
 
@@ -55,4 +55,4 @@ if __name__ == "__main__":
     image = quadtree.create_image(depth, show_lines=False)
 
     quadtree.create_gif("zstar_quadtree.gif", show_lines=True)
-    image.save("zstar_quadtree.jpg")
+    image.save("zstar_quadtree.png")

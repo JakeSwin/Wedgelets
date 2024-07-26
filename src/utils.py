@@ -17,6 +17,21 @@ def get_mask(shape, dist, angle):
 
     return mask
 
+def cut_points(points, dist, angle):
+    # Get dimensions
+    height, width = points.shape
+
+    x_vals = np.append(np.flip(-np.arange(np.floor(width/2))), np.arange(np.ceil(width/2)))
+    y_vals = np.append(np.flip(np.arange(np.floor(height/2))), -np.arange(np.ceil(height/2)))
+    # Create a grid of x and y coordinates
+    x, y = np.meshgrid(x_vals, y_vals)
+
+    # Create the mask based on the normal line equation
+    p1 = points[x*np.cos(angle) + y*np.sin(angle) < dist]
+    p2 = points[x*np.cos(angle) + y*np.sin(angle) > dist]
+
+    return p1, p2
+
 def average_colour(image):
     # convert image to np array
     image_arr = np.asarray(image)

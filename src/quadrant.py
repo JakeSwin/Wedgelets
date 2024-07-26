@@ -1,13 +1,21 @@
 import numpy as np
 
-from utils import get_homogeneity
+from utils import get_homogeneity, cut_points
+
+HOMOGENEITY_THRESHOLD = 0.008
 
 class Quadrant():
+    # Add coordinate (x,y) input if random sampling
     def __init__(self, points, bbox, depth):
         self.bbox = bbox
         self.depth = depth
         self.children = None
         self.leaf = False
+        self.isline = False
+        self.p = None
+        self.theta = None
+        self.p1_avg = None
+        self.p2_avg = None
 
         # crop image to quadrant size
         # image = image.crop(bbox)
@@ -37,19 +45,52 @@ class Quadrant():
         # add new quadrants to root children
         self.children = [upper_left, upper_right, bottom_left, bottom_right]
 
-    # def check_lines(self, image):
-    #     # Check detail of each region, if both is below threshold then set line
-    #     # TODO instead of using detail instead construct a new image based off avg pixel value in region
-    #     # Then calculate L2 error with original image, if below a certain threshold then use.
-    #     np_img = np.asarray(image)
-    #     t_mask = np.empty(np_img.shape, dtype=np.uint8)
-    #     for mask in MASKS:
-    #         region1 = np_img[~mask == 255]
-    #         col_r1 = np.array(np.average(region1, axis=0), dtype=np.uint8)
-    #         t_mask[mask==255] = col_r1
-    #         region2 = np_img[~mask == 0]
-    #         col_r2 = np.array(np.average(region2, axis=0), dtype=np.uint8)
-    #         t_mask[mask==0] = col_r2
-    #         L2_error = np.sqrt(np.sum((np_img - t_mask)**2))
-    #         TOTAL_L2.append(L2_error)
-    #         print(f"Min L2: {np.min(TOTAL_L2)}")
+    def check_lines(self, points):
+        # Check detail of each region, if both is below threshold then set line
+        # TODO instead of using detail instead construct a new image based off avg pixel value in region
+        # Then calculate L2 error with original image, if below a certain threshold then use.
+        num_angles = 15
+        num_lens = 10
+        left, top, width, height = self.bbox
+        points = points[top:height, left:width]
+
+        tested_angles = np.linspace(-np.pi / 2, np.pi / 2, num_angles, endpoint=False)
+        tested_len = np.linspace(-points.shape[1]/2, points.shape[1]/2, num_lens, endpoint=False)
+        lens, angles = np.meshgrid(tested_len, tested_angles)
+
+        min_h_mean = 1000
+        best_len = 0
+        best_angle = 0
+        best_p1_avg = 0
+        best_p2_avg = 0
+
+        for a in range(num_angles):
+            for l in range(num_lens):
+                p1, p2 = cut_points(points, lens[a][l], angles[a][l])
+                p1_len = len(p1)
+                p2_len = len(p2)
+                if p1_len == 0 or p2_len == 0:
+                    continue
+                p1_avg = np.mean(p1)
+                p2_avg = np.mean(p2)
+                p1_h = get_homogeneity(p1, p1_avg)
+                p2_h = get_homogeneity(p2, p2_avg)
+                h_mean = p1_h * (p1_len / points.size) + p2_h * (p2_len / points.size)
+                if h_mean < min_h_mean:
+                    min_h_mean = h_mean
+                    best_len = lens[a][l]
+                    best_angle = angles[a][l]
+                    best_p1_avg = p1_avg
+                    best_p2_avg = p2_avg
+                # print(f"p1 len: {p1_len}, p2 len: {p2_len}, size: {points.size}")
+                # print(f"p1 mean: {p1_avg}, p2 mean: {p2_avg}, p1 h: {p1_h}, p2 h: {p2_h}")
+                # if p1_h <= HOMOGENEITY_THRESHOLD and p2_h <= HOMOGENEITY_THRESHOLD:
+                #     print(f"Cut Found at depth: {self.depth}")
+
+                # if h_mean <= HOMOGENEITY_THRESHOLD:
+                #     print(f"Cut Found at depth: {self.depth}, bbox: {self.bbox}")
+                # if np.mean([p1_h, p2_h]) <= HOMOGENEITY_THRESHOLD:
+                #     print("Cut Found")
+        return min_h_mean, best_len, best_angle, best_p1_avg, best_p2_avg
+        # if min_h_mean <= HOMOGENEITY_THRESHOLD:
+        #     print(f"min h mean: {min_h_mean}, bbox: {self.bbox}, normal h: {self.homogeneity}, p: {best_len}, theta: {best_angle}")
